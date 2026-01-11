@@ -3,6 +3,17 @@ import time
 import os
 from django.apps import AppConfig
 
+global_debug_logs = []
+
+def log_debug(msg):
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+    entry = f"[{timestamp}] {msg}"
+    print(entry)
+    global_debug_logs.append(entry)
+    if len(global_debug_logs) > 100:
+        global_debug_logs.pop(0)
+
 def start_simulation_loop():
     # Deferred import to avoid registry not ready issues
     from simulator.models import Match
@@ -13,7 +24,9 @@ def start_simulation_loop():
     
     engine = SimulationEngine()
     last_updates = {}
-    print("Background Simulation Loop Started")
+    engine = SimulationEngine()
+    last_updates = {}
+    log_debug("Background Simulation Loop Started")
 
     while True:
         try:
@@ -35,16 +48,16 @@ def start_simulation_loop():
             
             now = time.time()
             for match in live_matches:
-                # print(f"Checking Match {match.id}")
+                # log_debug(f"Checking Match {match.id}")
                 last_update = last_updates.get(match.id, 0)
                 if now - last_update >= match.seconds_per_ball:
-                    print(f"Simulating ball for Match {match.id}")
+                    log_debug(f"Simulating ball for Match {match.id}")
                     engine.simulate_ball(match)
                     last_updates[match.id] = now
             
             time.sleep(0.1)
         except Exception as e:
-            print(f"Simulation Loop Error: {e}")
+            log_debug(f"Simulation Loop Error: {e}")
             import traceback
             traceback.print_exc()
             time.sleep(1)
@@ -61,6 +74,8 @@ class SimulatorConfig(AppConfig):
         # Robust check: Used defined Environment Variable
         should_run_jobs = str(os.environ.get('RUN_JOBS', '')).lower() == 'true'
         
+        log_debug(f"App Ready. RUN_JOBS={should_run_jobs} (Raw: {os.environ.get('RUN_JOBS')})")
+        
         if not should_run_jobs:
             # We are likely running migration or collectstatic, or not the main node
             return
@@ -72,11 +87,11 @@ class SimulatorConfig(AppConfig):
             # Wait a bit for DB to be configured
             time.sleep(5)
             try:
-                print("Running startup tasks (Admin Init + Simulation)...")
+                log_debug("Running startup tasks (Admin Init + Simulation)...")
                 call_command('init_admin')
                 start_simulation_loop()
             except Exception as e:
-                print(f"Startup Error: {e}")
+                log_debug(f"Startup Error: {e}")
 
         # Ensure we don't start multiple threads if ready() is called twice
         if not any(t.name == "StartupThread" for t in threading.enumerate()):

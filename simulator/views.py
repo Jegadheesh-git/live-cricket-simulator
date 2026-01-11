@@ -27,3 +27,8 @@ class MatchDetailView(APIView):
             return Response(serializer.data)
         except Match.DoesNotExist:
             return Response({"error": "Match not found"}, status=status.HTTP_404_NOT_FOUND)
+
+class DebugLogView(APIView):
+    def get(self, request):
+        from .apps import global_debug_logs
+        return Response(global_debug_logs)
