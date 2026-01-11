@@ -19,7 +19,15 @@ class CreateMatchView(View):
 
 from .models import Match, Team, Ball, InningsScore, BattingScore, BowlingScore, PlayingSquad
 
-class MatchActionView(View):
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+
+class MatchActionView(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def post(self, request, match_id, action):
         match = get_object_or_404(Match, id=match_id)
         
@@ -27,9 +35,11 @@ class MatchActionView(View):
             match.is_live = True
             match.match_ended = False
             match.save()
+            msg = "Match Started"
         elif action == 'pause':
             match.is_live = False
             match.save()
+            msg = "Match Paused"
         elif action == 'reset':
             match.is_live = False
             match.match_ended = False
@@ -42,15 +52,16 @@ class MatchActionView(View):
             InningsScore.objects.filter(match=match).delete()
             BattingScore.objects.filter(match=match).delete()
             BowlingScore.objects.filter(match=match).delete()
-            # We keep Squads? Yes, usually squads are fixed for the match.
             
             match.save()
+            msg = "Match Reset"
         elif action == 'speed':
             try:
-                speed = float(request.POST.get('seconds_per_ball', 1.0))
+                speed = float(request.data.get('seconds_per_ball', 1.0))
                 match.seconds_per_ball = speed
                 match.save()
+                msg = f"Speed set to {speed}"
             except ValueError:
-                pass
+                msg = "Invalid speed"
             
-        return redirect('dashboard')
+        return Response({"status": "success", "message": msg})
