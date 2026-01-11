@@ -71,12 +71,17 @@ class SimulatorConfig(AppConfig):
         import os
         import threading
         
-        # Robust check: Used defined Environment Variable
-        should_run_jobs = str(os.environ.get('RUN_JOBS', '')).lower() == 'true'
+        # Robust check: Check command line arguments
+        # Daphne start command: daphne -b ...
+        # Local runserver: python manage.py runserver
+        import sys
         
-        log_debug(f"App Ready. RUN_JOBS={should_run_jobs} (Raw: {os.environ.get('RUN_JOBS')})")
+        args_str = " ".join(sys.argv)
+        log_debug(f"App Ready. Args: {args_str}")
         
-        if not should_run_jobs:
+        is_server = 'daphne' in args_str or 'runserver' in args_str
+        
+        if not is_server:
             # We are likely running migration or collectstatic, or not the main node
             return
 
