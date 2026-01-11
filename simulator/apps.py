@@ -58,8 +58,8 @@ class SimulatorConfig(AppConfig):
         import os
         import threading
         
-        # Robust check: Are we running a server? (Runserver or Daphne)
-        is_server = 'daphne' in sys.argv[0] or 'runserver' in sys.argv or os.environ.get('RUN_MAIN') == 'true'
+        # Robust check: Are we running the master server process?
+        is_server = os.environ.get('SERVER_ROLE') == 'master' or 'runserver' in sys.argv or os.environ.get('RUN_MAIN') == 'true'
         
         if not is_server:
             # We are likely running migration or collectstatic, do not start simulation/init
