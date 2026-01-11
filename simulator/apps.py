@@ -54,19 +54,31 @@ class SimulatorConfig(AppConfig):
     name = 'simulator'
 
     def ready(self):
-        # Only start if runserver or daphne is running (prevent during migrate/collectstatic)
-        # However, checking 'runserver' in argv is unreliable.
-        # But for 'daphne', we can check process name or env?
-        # Let's just check if we are in the main process.
+        import sys
+        import os
+        import threading
         
-        if os.environ.get('RUN_MAIN') or os.environ.get('DAPHNE_SERVER'):
-            # Only run in the reloader process or if specifically flagged
-            # Actually, standard runserver uses RUN_MAIN=true for the child process.
-            # Daphne doesn't set RUN_MAIN standardly unless using --noreload maybe?
-            # Let's just try starting it. Thread is daemon, so it dies with main.
-            pass
+        # Robust check: Are we running a server? (Runserver or Daphne)
+        is_server = 'daphne' in sys.argv[0] or 'runserver' in sys.argv or os.environ.get('RUN_MAIN') == 'true'
         
-        # Avoid double start
-        if not any(t.name == "SimulationThread" for t in threading.enumerate()):
-            t = threading.Thread(target=start_simulation_loop, name="SimulationThread", daemon=True)
-            t.start()
+        if not is_server:
+            # We are likely running migration or collectstatic, do not start simulation/init
+            return
+
+        from django.core.management import call_command
+        import time
+        
+        def run_startup_tasks():
+            # Wait a bit for DB to be configured
+            time.sleep(5)
+            try:
+                print("Running startup tasks (Admin Init + Simulation)...")
+                call_command('init_admin')
+                start_simulation_loop()
+            except Exception as e:
+                print(f"Startup Error: {e}")
+
+        # Ensure we don't start multiple threads if ready() is called twice
+        if not any(t.name == "StartupThread" for t in threading.enumerate()):
+             thread = threading.Thread(target=run_startup_tasks, name="StartupThread", daemon=True)
+             thread.start()
