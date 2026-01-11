@@ -58,11 +58,11 @@ class SimulatorConfig(AppConfig):
         import os
         import threading
         
-        # Robust check: Are we running the master server process?
-        is_server = os.environ.get('SERVER_ROLE') == 'master' or 'runserver' in sys.argv or os.environ.get('RUN_MAIN') == 'true'
+        # Robust check: Used defined Environment Variable
+        should_run_jobs = os.environ.get('RUN_JOBS') == 'true'
         
-        if not is_server:
-            # We are likely running migration or collectstatic, do not start simulation/init
+        if not should_run_jobs:
+            # We are likely running migration or collectstatic, or not the main node
             return
 
         from django.core.management import call_command
