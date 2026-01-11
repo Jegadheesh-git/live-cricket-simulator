@@ -25,9 +25,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', '$$9ft0-1)_yj2b*yphjvtj13p71l430j=c_5x
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
-if not DEBUG:
-    ALLOWED_HOSTS = ['.railway.app', 'localhost', '127.0.0.1']
-    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
+CSRF_TRUSTED_ORIGINS = ['https://*.railway.app', 'https://*.onrender.com']
 
 # Application definition
 INSTALLED_APPS = [
