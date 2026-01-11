@@ -1,0 +1,74 @@
+{% extends 'simulator/base.html' %}
+
+{% block content %}
+<div class="mb-6 flex justify-between items-center">
+    <h2 class="text-xl font-semibold text-slate-200">Matches</h2>
+    <form action="{% url 'create-match' %}" method="post">
+        {% csrf_token %}
+        <button type="submit"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition shadow-lg shadow-blue-500/20">
+            + Create Random Match
+        </button>
+    </form>
+</div>
+
+<div class="grid gap-4">
+    {% for match in matches %}
+    <div class="bg-slate-800 rounded-xl p-6 border border-slate-700 shadow-xl flex justify-between items-center">
+        <div>
+            <div class="text-xs font-mono text-slate-400 mb-1">ID: {{ match.id }} • {{ match.match_type }}</div>
+            <div class="text-xl font-bold text-white mb-2">
+                {% for team in match.teams.all %}
+                {{ team.short_name }}{% if not forloop.last %} vs {% endif %}
+                {% endfor %}
+            </div>
+            <div class="flex gap-2 text-sm">
+                <span
+                    class="px-2 py-0.5 rounded {% if match.is_live %}bg-green-500/20 text-green-400 border border-green-500/30{% else %}bg-slate-700 text-slate-400{% endif %}">
+                    {% if match.is_live %}LIVE{% else %}PAUSED{% endif %}
+                </span>
+                <span class="px-2 py-0.5 rounded bg-slate-700 text-slate-400">
+                    Innings: {{ match.current_innings }}
+                </span>
+            </div>
+
+            <form action="{% url 'match-action' match.id 'speed' %}" method="post" class="mt-2 flex items-center gap-2">
+                {% csrf_token %}
+                <label class="text-xs text-slate-500">Sec/Ball:</label>
+                <input type="number" name="seconds_per_ball" value="{{ match.seconds_per_ball }}" step="0.1" min="0.1"
+                    max="100"
+                    class="w-16 h-6 px-1 text-xs bg-slate-900 border border-slate-700 rounded text-slate-300 focus:outline-none focus:border-blue-500">
+                <button
+                    class="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-2 py-0.5 rounded text-xs transition">Set</button>
+            </form>
+        </div>
+
+        <div class="flex gap-2">
+            {% if not match.is_live %}
+            <form action="{% url 'match-action' match.id 'start' %}" method="post">
+                {% csrf_token %}
+                <button
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-sm transition">Start</button>
+            </form>
+            {% else %}
+            <form action="{% url 'match-action' match.id 'pause' %}" method="post">
+                {% csrf_token %}
+                <button
+                    class="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded text-sm transition">Pause</button>
+            </form>
+            {% endif %}
+
+            <form action="{% url 'match-action' match.id 'reset' %}" method="post">
+                {% csrf_token %}
+                <button
+                    class="bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded text-sm transition">Reset</button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <div class="text-center py-12 text-slate-500 bg-slate-800/50 rounded-xl border border-dashed border-slate-700">
+        No matches found. Create one to get started.
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
