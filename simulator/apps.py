@@ -59,7 +59,7 @@ class SimulatorConfig(AppConfig):
         import threading
         
         # Robust check: Used defined Environment Variable
-        should_run_jobs = os.environ.get('RUN_JOBS') == 'true'
+        should_run_jobs = str(os.environ.get('RUN_JOBS', '')).lower() == 'true'
         
         if not should_run_jobs:
             # We are likely running migration or collectstatic, or not the main node
