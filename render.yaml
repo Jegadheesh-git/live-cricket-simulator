@@ -18,7 +18,7 @@ services:
           name: cricket-db
           property: connectionString
       - key: WEB_CONCURRENCY
-        value: 4
+        value: 1
 
 databases:
   - name: cricket-db
