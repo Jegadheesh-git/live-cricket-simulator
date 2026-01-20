@@ -1,5 +1,12 @@
 from django.db import models
 
+class Nationality(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=3) # e.g. IND, AUS
+
+    def __str__(self):
+        return self.name
+
 class Team(models.Model):
     name = models.CharField(max_length=100)
     short_name = models.CharField(max_length=10, unique=True)
@@ -18,18 +25,47 @@ class Player(models.Model):
     BATTING_HAND_CHOICES = (
         ('RIGHT', 'Right Hand'),
         ('LEFT', 'Left Hand'),
+        ('UNKNOWN', 'Unknown'),
+    )
+    BOWLING_HAND_CHOICES = (
+        ('RIGHT', 'Right Hand'),
+        ('LEFT', 'Left Hand'),
+        ('UNKNOWN', 'Unknown'),
     )
     BOWLING_STYLE_CHOICES = (
         ('FAST', 'Fast'),
         ('SPIN', 'Spin'),
         ('MEDIUM', 'Medium'),
     )
+    GENDER_CHOICES = (
+        ('M', 'Male'),
+        ('F', 'Female'),
+    )
 
     first_name = models.CharField(max_length=100)
+    middle_name = models.CharField(max_length=100, blank=True, null=True)
     last_name = models.CharField(max_length=100)
+    nick_name = models.CharField(max_length=100, blank=True, null=True)
+    
+    nationality = models.ForeignKey(Nationality, on_delete=models.SET_NULL, null=True, blank=True)
+    dob = models.DateField(null=True, blank=True)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, default='M')
+    
+    height = models.FloatField(help_text="Height in cm", null=True, blank=True)
+    weight = models.FloatField(help_text="Weight in kg", null=True, blank=True)
+    
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     batting_hand = models.CharField(max_length=20, choices=BATTING_HAND_CHOICES, default='RIGHT')
+    bowling_hand = models.CharField(max_length=20, choices=BOWLING_HAND_CHOICES, default='RIGHT')
     bowling_style = models.CharField(max_length=20, choices=BOWLING_STYLE_CHOICES, blank=True, null=True)
+    
+    batting_style = models.CharField(max_length=100, help_text="Technical attributes", blank=True, null=True)
+    fielding_skill = models.CharField(max_length=100, blank=True, null=True)
+    wicket_keeping_skill = models.CharField(max_length=100, blank=True, null=True)
+    
+    height_type = models.CharField(max_length=20, help_text="Short/Medium/Tall", blank=True, null=True)
+    bowling_type = models.CharField(max_length=50, help_text="Pace/Spin variations", blank=True, null=True)
+    batting_type = models.CharField(max_length=50, help_text="Technical attributes", blank=True, null=True)
     
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
@@ -47,6 +83,7 @@ class Match(models.Model):
     
     teams = models.ManyToManyField(Team, related_name='matches')
     date = models.DateTimeField()
+    venue = models.CharField(max_length=255, blank=True, null=True)
     match_type = models.CharField(max_length=10, choices=MATCH_TYPE_CHOICES, default='T20')
     is_live = models.BooleanField(default=False)
     match_ended = models.BooleanField(default=False)

@@ -1,11 +1,24 @@
 import random
 from faker import Faker
-from simulator.models import Team, Player, Match, PlayingSquad
+from simulator.models import Team, Player, Match, PlayingSquad, Nationality
 from django.utils import timezone
 
 fake = Faker()
 
+def get_or_create_nationalities():
+    nationalities = [
+        ('India', 'IND'), ('Australia', 'AUS'), ('England', 'ENG'), 
+        ('South Africa', 'RSA'), ('New Zealand', 'NZ'), ('Pakistan', 'PAK'),
+        ('West Indies', 'WI'), ('Sri Lanka', 'SL'), ('Bangladesh', 'BAN'), ('Afghanistan', 'AFG')
+    ]
+    objs = []
+    for name, code in nationalities:
+        obj, _ = Nationality.objects.get_or_create(name=name, code=code)
+        objs.append(obj)
+    return objs
+
 def generate_teams_and_players(count=2):
+    nationalities = get_or_create_nationalities()
     teams = []
     for _ in range(count):
         city = fake.city()
@@ -19,26 +32,41 @@ def generate_teams_and_players(count=2):
         
         # Ensure players
         if team.matches.count() == 0:  # Only add players if new or unused essentially
-             _generate_players_for_team(team)
+             _generate_players_for_team(team, nationalities)
         
         teams.append(team)
     return teams
 
-def _generate_players_for_team(team):
+def _generate_players_for_team(team, nationalities):
     roles = ['BATSMAN'] * 5 + ['ALL_ROUNDER'] * 2 + ['WICKET_KEEPER'] * 1 + ['BOWLER'] * 4
     for role in roles:
         Player.objects.create(
             first_name=fake.first_name_male(),
+            middle_name=fake.first_name_male() if random.random() > 0.7 else "",
             last_name=fake.last_name(),
+            nick_name=fake.first_name() if random.random() > 0.5 else "",
+            nationality=random.choice(nationalities),
+            dob=fake.date_of_birth(minimum_age=18, maximum_age=38),
+            gender='M',
+            height=random.uniform(165, 195),
+            weight=random.uniform(60, 95),
             role=role,
             batting_hand=random.choice(['RIGHT', 'LEFT']),
-            bowling_style=random.choice(['FAST', 'SPIN', 'MEDIUM']) if role != 'WICKET_KEEPER' else None
+            bowling_hand=random.choice(['RIGHT', 'LEFT']),
+            bowling_style=random.choice(['FAST', 'SPIN', 'MEDIUM']) if role != 'WICKET_KEEPER' else None,
+            batting_style="Accumulator" if role == 'BATSMAN' else "Slogger",
+            fielding_skill=random.choice(['Elite', 'Good', 'Average']),
+            wicket_keeping_skill='Elite' if role == 'WICKET_KEEPER' else 'None',
+            height_type=random.choice(['Short', 'Medium', 'Tall']),
+            bowling_type=random.choice(['Express Pace', 'Leg Spin', 'Off Spin']) if role == 'BOWLER' else None,
+            batting_type="Technical"
         )
 
 def create_dummy_match():
     teams = generate_teams_and_players(2)
     match = Match.objects.create(
         date=timezone.now(),
+        venue=f"{fake.city()} International Cricket Stadium",
         match_type='T20',
         is_live=False,
         current_innings=1
@@ -46,32 +74,14 @@ def create_dummy_match():
     match.teams.set(teams)
     
     # Init squads (simple: pick first 11)
-    for team in teams:
-        players = Player.objects.filter(playingsquad__team=team).distinct()
-        if not players.exists():
-             _generate_players_for_team(team)
-             players = Player.objects.filter(playingsquad__team=team).distinct() # Re-query? No, wait.
-             # Actually Player creation doesn't link to team directly in many models, 
-             # but here we don't have a Team-Player link in Model yet? 
-             # Ah, Player model is standalone. PlayingSquad links them.
-             # So we need to just pick ANY players or associate them loosely.
-             # Let's just pick random players who are NOT in a squad for this match yet?
-             # Or better: Create new players for every team generation to avoid conflicts.
-             pass
-        else:
-             # reuse?
-             pass
-
-    # REVISION: Player model doesn't have a 'Team' foreign key in my design phase 1.
-    # It seems Players are free agents in my model or I missed linking them.
-    # Checking Phase 1 models... 
-    # Team, Player, Match, PlayingSquad.
-    # Player has no Team FK. So Players are global pool.
-    # FIX: I will assign players to the squad from a global pool or create new ones tailored for the team name.
+    # Note: Phase 1 implementation didn't link players to teams, so we just pick random available players 
+    # or create new ones in setup_match_squads.
+    # We will rely on setup_match_squads to do the heavy lifting of squad creation
     
     return match
 
 def setup_match_squads(match):
+    nationalities = get_or_create_nationalities()
     # For each team, create 11 players and add to squad
     for team in match.teams.all():
         # Create 11 fresh players for this match/team specifically to avoid logic complexity
@@ -79,10 +89,17 @@ def setup_match_squads(match):
         for i, role in enumerate(roles):
             player = Player.objects.create(
                 first_name=fake.first_name_male(),
+                middle_name=fake.first_name_male() if random.random() > 0.7 else "",
                 last_name=fake.last_name(),
+                nationality=random.choice(nationalities),
+                dob=fake.date_of_birth(minimum_age=18, maximum_age=38),
+                gender='M',
+                height=random.uniform(165, 195),
+                weight=random.uniform(60, 95),
                 role=role,
                 batting_hand=random.choice(['RIGHT', 'LEFT']),
-                bowling_style=random.choice(['FAST', 'SPIN', 'MEDIUM']) if role != 'WICKET_KEEPER' else None
+                bowling_style=random.choice(['FAST', 'SPIN', 'MEDIUM']) if role != 'WICKET_KEEPER' else None,
+                height_type=random.choice(['Short', 'Medium', 'Tall'])
             )
             PlayingSquad.objects.create(
                 match=match,
