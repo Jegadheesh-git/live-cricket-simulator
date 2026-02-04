@@ -73,7 +73,7 @@ def test_simulation_lifecycle():
     # Let's Skip creation via script if tricky, and just use the CURRENT live match from API if exists.
     
     resp = requests.get(f"{BASE_URL}/api/v1/matches/live", headers={"Authorization": f"Token {TOKEN}"})
-    matches = resp.json()
+    matches = resp.json().get("data", [])
     
     target_match = None
     if matches:
@@ -104,7 +104,7 @@ def test_simulation_lifecycle():
     for i in range(attempts):
         time.sleep(2)
         resp = requests.get(f"{BASE_URL}/api/v1/matches/live", headers={"Authorization": f"Token {TOKEN}"})
-        current_data = resp.json()
+        current_data = resp.json().get("data", [])
         
         # Find our match
         m = next((x for x in current_data if x['id'] == match_id), None)

@@ -1,10 +1,15 @@
 from rest_framework import serializers
-from .models import Match, Team, Player, PlayingSquad, Nationality
+from .models import Match, Team, Player, PlayingSquad, Nationality, Tournament
 
 class NationalitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Nationality
         fields = ['id', 'name', 'code']
+
+class TournamentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tournament
+        fields = ['id', 'code', 'name']
 
 class PlayerSerializer(serializers.ModelSerializer):
     nationality = NationalitySerializer(read_only=True)
@@ -50,13 +55,19 @@ class TeamSquadSerializer(serializers.ModelSerializer):
 class MatchSerializer(serializers.ModelSerializer):
     # We use a serializer method field or custom init to pass context to TeamSerializer if we want nested squad
     teams = serializers.SerializerMethodField()
+    tournament = TournamentSerializer(read_only=True)
     toss_won_by = TeamSerializer(read_only=True)
     score = serializers.SerializerMethodField()
+    matchId = serializers.IntegerField(source='id', read_only=True)
+    matchName = serializers.SerializerMethodField()
+    tournamentId = serializers.SerializerMethodField()
+    tournamentName = serializers.SerializerMethodField()
     
     class Meta:
         model = Match
         fields = [
-            'id', 'teams', 'date', 'venue', 'match_type', 'is_live', 'match_ended', 
+            'id', 'matchId', 'matchName', 'tournament', 'tournamentId', 'tournamentName',
+            'teams', 'date', 'venue', 'match_type', 'is_live', 'match_ended',
             'toss_won_by', 'opt_to', 'current_innings', 'score'
         ]
 
@@ -75,6 +86,19 @@ class MatchSerializer(serializers.ModelSerializer):
                 'team_id': score.team.id
             }
         return {}
+
+    def get_matchName(self, obj):
+        return f"Match {obj.id}"
+
+    def get_tournamentId(self, obj):
+        if obj.tournament:
+            return obj.tournament.code
+        return None
+
+    def get_tournamentName(self, obj):
+        if obj.tournament:
+            return obj.tournament.name
+        return None
 
 class PlayingSquadSerializer(serializers.ModelSerializer):
     player = PlayerSerializer(read_only=True)

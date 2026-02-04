@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebSocket Test</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .control-panel {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 1px solid #475569;
+            background: #334155;
+            color: white;
+        }
+
+        button {
+            background: #3b82f6;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        #log {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 8px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            border: 1px solid #334155;
+        }
+
+        .entry {
+            border-bottom: 1px solid #334155;
+            padding: 4px 0;
+            color: #94a3b8;
+        }
+
+        .highlight {
+            color: #4ade80;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🏏 Live Ball-by-Ball Data Viewer</h1>
+
+        <div class="control-panel">
+            <label>Environment:</label>
+            <select id="hostSelect">
+                <option value="live-cricket-simulator.onrender.com">Production (onrender.com)</option>
+                <option value="localhost:8000">Local (localhost:8000)</option>
+            </select>
+            <br /><br />
+            <label>Token:</label>
+            <input type="text" id="tokenInput" placeholder="Paste Token Here" style="width: 250px;" />
+            <br /><br />
+            <label>Match ID:</label>
+            <input type="number" id="matchIdInput" value="1" />
+            <button onclick="connect()">Connect & Watch</button>
+            <span id="status" style="margin-left: 10px; color: #cbd5e1;">Not Connected</span>
+        </div>
+
+        <h3>Data Stream:</h3>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let socket = null;
+
+        function connect() {
+            const host = document.getElementById("hostSelect").value;
+            const matchId = document.getElementById("matchIdInput").value;
+            const token = document.getElementById("tokenInput").value.trim();
+
+            if (!token) {
+                alert("Please enter an authentication token!");
+                return;
+            }
+
+            if (socket) {
+                socket.close();
+            }
+
+            document.getElementById("status").innerText = "Connecting to Match " + matchId + "...";
+
+            // Determine protocol (ws for localhost, wss for production)
+            const protocol = host.includes("localhost") ? "ws" : "wss";
+            const wsUrl = `${protocol}://${host}/ws/matches/${matchId}/?token=${token}`;
+
+            log("Attempting connection to: " + wsUrl);
+
+            socket = new WebSocket(wsUrl);
+
+            socket.onopen = function (e) {
+                document.getElementById("status").innerText = "✅ Connected! Waiting for balls...";
+                document.getElementById("status").style.color = "#4ade80";
+                log("Connection Established.");
+            };
+
+            socket.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    const formatted = JSON.stringify(data, null, 2);
+                    log(`DATA RECEIVED:\n${formatted}`, true);
+                } catch (e) {
+                    log("Message: " + event.data);
+                }
+            };
+
+            socket.onclose = function (event) {
+                document.getElementById("status").innerText = "❌ Disconnected";
+                document.getElementById("status").style.color = "#ef4444";
+                log("Connection Closed: " + (event.reason || "Unknown reason"));
+            };
+
+            socket.onerror = function (error) {
+                document.getElementById("status").innerText = "⚠️ Error";
+                log("Error occurred check console.");
+            };
+        }
+
+        function log(msg, highlight = false) {
+            const div = document.createElement("div");
+            div.className = "entry";
+            if (highlight) div.classList.add("highlight");
+            const time = new Date().toLocaleTimeString();
+            div.innerText = `[${time}] ${msg}`;
+            const container = document.getElementById("log");
+            container.prepend(div);
+        }
+    </script>
+</body>
+
+</html>

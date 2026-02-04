@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import LiveMatchesView, MatchDetailView, DebugLogView
+from .views import LiveMatchesView, MatchDetailView, DebugLogView, TournamentListView
 from .views_admin import DashboardView, CreateMatchView, MatchActionView
 
 urlpatterns = [
@@ -11,5 +11,6 @@ urlpatterns = [
     # Public APIs
     path('matches/live', LiveMatchesView.as_view(), name='live-matches'),
     path('matches/<int:match_id>', MatchDetailView.as_view(), name='match-detail'),
+    path('tournaments/', TournamentListView.as_view(), name='tournament-list'),
     path('debug-logs/', DebugLogView.as_view(), name='debug-logs'),
 ]

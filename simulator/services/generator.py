@@ -1,6 +1,6 @@
 import random
 from faker import Faker
-from simulator.models import Team, Player, Match, PlayingSquad, Nationality
+from simulator.models import Team, Player, Match, PlayingSquad, Nationality, Tournament
 from django.utils import timezone
 
 fake = Faker()
@@ -16,6 +16,13 @@ def get_or_create_nationalities():
         obj, _ = Nationality.objects.get_or_create(name=name, code=code)
         objs.append(obj)
     return objs
+
+def get_or_create_default_tournament():
+    tournament, _ = Tournament.objects.get_or_create(
+        code="tour123",
+        defaults={"name": "IPL"}
+    )
+    return tournament
 
 def generate_teams_and_players(count=2):
     nationalities = get_or_create_nationalities()
@@ -64,7 +71,9 @@ def _generate_players_for_team(team, nationalities):
 
 def create_dummy_match():
     teams = generate_teams_and_players(2)
+    tournament = get_or_create_default_tournament()
     match = Match.objects.create(
+        tournament=tournament,
         date=timezone.now(),
         venue=f"{fake.city()} International Cricket Stadium",
         match_type='T20',
