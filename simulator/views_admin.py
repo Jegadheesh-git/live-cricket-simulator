@@ -32,6 +32,11 @@ class MatchActionView(APIView):
         match = get_object_or_404(Match, id=match_id)
         
         if action == 'start':
+            if match.match_ended:
+                return Response(
+                    {"status": "error", "message": "Match already ended. Reset to start again."},
+                    status=400,
+                )
             match.is_live = True
             match.match_ended = False
             match.save()
@@ -62,6 +67,9 @@ class MatchActionView(APIView):
                 match.save()
                 msg = f"Speed set to {speed}"
             except ValueError:
-                msg = "Invalid speed"
+                return Response(
+                    {"status": "error", "message": "Invalid speed"},
+                    status=400,
+                )
             
         return Response({"status": "success", "message": msg})

@@ -1,147 +1,321 @@
 # Live Cricket Simulator - API Documentation
 
 ## Overview
-This API allows broadcast solutions to fetch live cricket match data and subscribe to real-time ball-by-ball updates via WebSockets.
+This API allows broadcast solutions to fetch live cricket match data, control simulations, and subscribe to real-time ball-by-ball updates via WebSockets.
 
-**Base URL**: `https://live-cricket-simulator.onrender.com/api/v1`
-**WebSocket URL**: `wss://live-cricket-simulator.onrender.com/ws/matches/<match_id>/`
+Base URL: `https://live-cricket-simulator.onrender.com/api/v1`
+WebSocket URL: `wss://live-cricket-simulator.onrender.com/ws/matches/<match_id>/`
 
 ---
 
 ## Authentication
-All API requests require a **Token**.
+All API requests require a token (TokenAuth).
 
-### HTTP Headers
-Include the `Authorization` header in all HTTP requests:
+HTTP header:
 ```http
 Authorization: Token <YOUR_TOKEN>
 ```
 
-### WebSocket Query Parameter
-Include the `token` query parameter in the WebSocket URL:
-```text
-wss://.../ws/matches/1/?token=<YOUR_TOKEN>
+WebSocket query parameter:
+```
+wss://.../ws/matches/<match_id>/?token=<YOUR_TOKEN>
 ```
 
 ---
 
-## 1. Live Data APIs (HTTP)
+## Data Models (Response Shape)
 
-### Get Live Matches
-Returns a list of all currently active matches.
+### Tournament
+```json
+{
+  "id": 1,
+  "code": "tour123",
+  "name": "IPL"
+}
+```
 
-- **Endpoint**: `/matches/live`
-- **Method**: `GET`
-- **Response**:
-  ```json
-  {
-    "data": [
-      {
-        "tournamentId": "tour123",
-        "tournamentName": "IPL",
-        "matchId": 1,
-        "matchName": "Match 1",
-        "id": 1,
-        "teams": [
-          {"id": 1, "name": "Team A", "short_name": "TMA"},
-          {"id": 2, "name": "Team B", "short_name": "TMB"}
-        ],
-        "is_live": true,
-        "score": {
-          "runs": 45,
-          "wickets": 2,
-          "overs": 5.4
+### Match (Live List Item)
+```json
+{
+  "tournamentId": "tour123",
+  "tournamentName": "IPL",
+  "matchId": 2,
+  "matchName": "Match 2",
+  "id": 2,
+  "teams": [
+    {
+      "id": 3,
+      "name": "Jessicabury Wheats",
+      "short_name": "JW71",
+      "logo_url": null,
+      "squad": [
+        {
+          "player": {
+            "id": 119,
+            "first_name": "Mike",
+            "middle_name": null,
+            "last_name": "Ferguson",
+            "nick_name": null,
+            "nationality": null,
+            "dob": null,
+            "gender": "M",
+            "height": null,
+            "weight": null,
+            "height_type": null,
+            "role": "BATSMAN",
+            "batting_hand": "LEFT",
+            "bowling_hand": "RIGHT",
+            "bowling_style": "FAST",
+            "batting_style": null,
+            "fielding_skill": null,
+            "wicket_keeping_skill": null,
+            "batting_type": null,
+            "bowling_type": null
+          },
+          "is_captain": true,
+          "is_wicket_keeper": false
         }
-      }
-    ]
-  }
-  ```
-
-### Get Match Details
-Returns full details for a specific match.
-
-- **Endpoint**: `/matches/<match_id>`
-- **Method**: `GET`
-- **Response**: Returns match object (similar to above but with more detail if applicable).
+      ]
+    }
+  ],
+  "status": "LIVE",
+  "score": {
+    "runs": 24,
+    "wickets": 1,
+    "overs": 4,
+    "team_id": 3
+  },
+  "venue": null,
+  "date": "2026-01-11T17:01:40.743499Z",
+  "match_type": "T20",
+  "is_live": true,
+  "match_ended": false,
+  "toss_won_by": null,
+  "opt_to": null,
+  "current_innings": 1
+}
+```
 
 ---
 
-## 2. Real-Time Streaming (WebSocket)
+## Endpoints (HTTP)
 
-Connect to the WebSocket to receive instant updates whenever a ball is simulated.
+### 1. Get Live Matches
+Returns all currently live matches.
 
-- **URL**: `wss://live-cricket-simulator.onrender.com/ws/matches/<match_id>/?token=<YOUR_TOKEN>`
+Endpoint: `/matches/live`
+Method: `GET`
 
-### Events
-The server sends JSON messages. The primary event is `BALL_UPDATE`.
+Response:
+```json
+{
+  "data": [
+    {
+      "tournamentId": "tour123",
+      "tournamentName": "IPL",
+      "matchId": 2,
+      "matchName": "Match 2",
+      "id": 2,
+      "teams": [
+        {"id": 3, "name": "Team A", "short_name": "TMA", "logo_url": null, "squad": []},
+        {"id": 4, "name": "Team B", "short_name": "TMB", "logo_url": null, "squad": []}
+      ],
+      "score": {"runs": 24, "wickets": 1, "overs": 4, "team_id": 3},
+      "is_live": true,
+      "match_ended": false,
+      "current_innings": 1
+    }
+  ]
+}
+```
 
-**Payload Example:**
+---
+
+### 2. Get Match Details
+Returns full details for a specific match.
+
+Endpoint: `/matches/<match_id>`
+Method: `GET`
+
+Response:
+```json
+{
+  "tournamentId": "tour123",
+  "tournamentName": "IPL",
+  "matchId": 2,
+  "matchName": "Match 2",
+  "id": 2,
+  "teams": [...],
+  "score": {...},
+  "date": "2026-01-11T17:01:40.743499Z",
+  "match_type": "T20",
+  "is_live": true,
+  "match_ended": false,
+  "current_innings": 1
+}
+```
+
+---
+
+### 3. Match Control APIs
+Control simulation state.
+
+Endpoint: `/match/<id>/start/`
+Method: `POST`
+Body: none
+
+Endpoint: `/match/<id>/pause/`
+Method: `POST`
+Body: none
+
+Endpoint: `/match/<id>/reset/`
+Method: `POST`
+Body: none
+Note: Destructive, clears balls and scores.
+
+Endpoint: `/match/<id>/speed/`
+Method: `POST`
+Body:
+```json
+{"seconds_per_ball": 1.0}
+```
+
+Response (for all control calls):
+```json
+{"status": "success", "message": "Match Started"}
+```
+
+---
+
+### 4. Tournaments (Live + Upcoming)
+Useful for tournament pass feature.
+
+Endpoint: `/tournaments/`
+Method: `GET`
+
+Response:
+```json
+{
+  "live": [
+    {"id": 1, "code": "tour123", "name": "IPL"}
+  ],
+  "upcoming": [
+    {"id": 2, "code": "tour124", "name": "BBL"}
+  ]
+}
+```
+
+---
+
+### 5. Debug Logs
+Returns recent simulation logs.
+
+Endpoint: `/debug-logs/`
+Method: `GET`
+
+Response:
+```json
+[
+  "[12:30:01] Background Simulation Loop Started",
+  "[12:30:04] Simulating ball for Match 2"
+]
+```
+
+---
+
+## WebSocket (Real-Time)
+
+Connect to receive ball-by-ball events for a match.
+
+URL:
+```
+wss://live-cricket-simulator.onrender.com/ws/matches/<match_id>/?token=<YOUR_TOKEN>
+```
+
+Event: `BALL_UPDATE`
 ```json
 {
   "type": "BALL_UPDATE",
+  "matchId": 2,
   "ball": {
-    "ball": 4,          // Ball number in over (1-6)
-    "over": 5,          // Current over number
-    "bowler": "Bowler Name",
-    "batsman": "Batsman Name",
-    "runs": 4,          // Runs scored on this ball
+    "over": 5,
+    "ball": 4,
     "is_wicket": false,
-    "commentary": "Four runs!"
+    "dismissal": null,
+    "runs": 4,
+    "extras": 0,
+    "striker_id": 119,
+    "bowler_id": 137
   },
   "score": {
+    "team_id": 3,
     "runs": 49,
     "wickets": 2,
-    "overs": 5.4,
-    "team_id": 1
+    "overs": 5.4
   }
 }
 ```
 
 ---
 
-## 3. Remote Control APIs
-These endpoints allow you to control the simulation programmatically.
+## How To Use (Quick Start)
 
-| Action | Endpoint | Method | Description |
-| :--- | :--- | :--- | :--- |
-| **Start** | `/match/<id>/start/` | `POST` | Starts the simulation loop. |
-| **Pause** | `/match/<id>/pause/` | `POST` | Pauses the simulation. |
-| **Reset** | `/match/<id>/reset/` | `POST` | **Destructive**. Clears all score data & resets match to 0-0. |
-| **Speed** | `/match/<id>/speed/` | `POST` | Set simulation speed. Body: `{"seconds_per_ball": 1.0}` |
+1. Get your token (admin init prints it on server startup).
+2. Create a match from the dashboard: `/api/v1/dashboard/` (web UI).
+3. Start the match with the control endpoint.
+4. Consume `/matches/live` and WebSocket events.
 
-### Control Example (Restart Match)
-```bash
-curl -X POST https://live-cricket-simulator.onrender.com/api/v1/match/1/reset/ \
-  -H "Authorization: Token <YOUR_TOKEN>"
+---
 
-curl -X POST https://live-cricket-simulator.onrender.com/api/v1/match/1/start/ \
-  -H "Authorization: Token <YOUR_TOKEN>"
+## Postman Testing Guide
+
+### 1. Set Environment
+Create a Postman environment with:
+```
+base_url = https://live-cricket-simulator.onrender.com/api/v1
+token = <YOUR_TOKEN>
 ```
 
----
+### 2. Authorization
+For all HTTP requests:
+Header:
+```
+Authorization: Token {{token}}
+```
 
-## 4. Debugging
-If you suspect the server is inactive, you can check the logs.
+### 3. Test Live Matches
+Method: `GET`
+URL: `{{base_url}}/matches/live`
 
-- **Endpoint**: `/debug-logs/`
-- **Method**: `GET`
-- **Response**: List of recent server logs (Simulation Loop activity).
+Expected: `200` with `data` array.
 
----
+### 4. Test Match Control (Start)
+Method: `POST`
+URL: `{{base_url}}/match/<match_id>/start/`
 
-## 5. Tournaments
-Fetch live and upcoming tournaments for tournament pass features.
+Expected: `200` with status success.
 
-- **Endpoint**: `/tournaments/`
-- **Method**: `GET`
-- **Response**:
-  ```json
-  {
-    "live": [
-      {"id": 1, "code": "tour123", "name": "IPL"}
-    ],
-    "upcoming": [
-      {"id": 2, "code": "tour124", "name": "BBL"}
-    ]
-  }
-  ```
+### 5. Test Match Control (Speed)
+Method: `POST`
+URL: `{{base_url}}/match/<match_id>/speed/`
+Body (JSON):
+```json
+{"seconds_per_ball": 0.5}
+```
+
+### 6. Test Match Details
+Method: `GET`
+URL: `{{base_url}}/matches/<match_id>`
+
+### 7. Test Tournaments
+Method: `GET`
+URL: `{{base_url}}/tournaments/`
+
+### 8. WebSocket Test
+Postman supports WebSocket testing:
+1. New -> WebSocket Request
+2. URL:
+   ```
+   wss://live-cricket-simulator.onrender.com/ws/matches/<match_id>/?token={{token}}
+   ```
+3. Click Connect and observe `BALL_UPDATE` messages.
