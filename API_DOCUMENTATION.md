@@ -236,70 +236,108 @@ Event: `BALL_UPDATE`
 ```json
 {
   "type": "BALL_UPDATE",
-  "matchId": 2,
-  "ball": {
-    "over": 5,
-    "ball": 4,
-    "runs": 4,
-    "extras": 0,
-    "extra_type": null,
-    "is_wicket": false,
-    "dismissal": null,
-    "striker_id": 119,
-    "non_striker_id": 120,
-    "bowler_id": 137
+  "matchId": 1,
+  "matchInfo": {
+    "matchId": 1,
+    "matchName": "New Meredith Reds vs East Amy Limegreens",
+    "tournament": {"id": "1", "name": "IPL", "code": "tour123"},
+    "venue": "Eden Gardens",
+    "startTime": "2026-02-10T07:56:33.264Z",
+    "status": "LIVE",
+    "overs_per_innings": 50
   },
-  "score": {
-    "team_id": 3,
-    "runs": 49,
-    "wickets": 2,
-    "overs": 5.4,
-    "run_rate": 6.54,
-    "required_run_rate": null
-  },
-  "batsmen": [
+  "teams": [
     {
-      "player_id": 119,
-      "runs": 34,
-      "balls": 28,
-      "fours": 4,
-      "sixes": 1,
-      "strike_rate": 121.43,
-      "on_strike": true
-    },
-    {
-      "player_id": 120,
-      "runs": 18,
-      "balls": 21,
-      "fours": 2,
-      "sixes": 0,
-      "strike_rate": 85.71,
-      "on_strike": false
+      "id": 1,
+      "name": "New Meredith Reds",
+      "short_name": "NMR",
+      "logo_url": "https://example.com/team1.png",
+      "squad": [
+        {
+          "player_id": 49,
+          "name": "John Greer",
+          "role": "BATSMAN",
+          "batting_hand": "LEFT",
+          "bowling_style": "MEDIUM",
+          "is_captain": true,
+          "is_wicket_keeper": false
+        }
+      ]
     }
   ],
-  "bowler": {
-    "player_id": 137,
-    "overs": 2.1,
-    "maidens": 0,
-    "runs_conceded": 14,
-    "wickets": 1,
-    "economy": 6.46
+  "score": {
+    "team_id": 1,
+    "runs": 270,
+    "wickets": 7,
+    "overs": 41.1,
+    "run_rate": 6.56,
+    "required_run_rate": 7.2
   },
-  "partnership": {
-    "runs": 42,
-    "balls": 38
+  "currentInnings": {
+    "batting_team_id": 1,
+    "bowling_team_id": 2,
+    "partnership": {
+      "runs": 11,
+      "balls": 15,
+      "batsmen": [
+        {"player_id": 57, "name": "Player A"},
+        {"player_id": 51, "name": "Player B"}
+      ]
+    },
+    "last_ball": {
+      "over": 41,
+      "ball": 1,
+      "runs": 0,
+      "extras": 0,
+      "extra_type": null,
+      "is_wicket": false,
+      "striker": {"player_id": 57, "name": "Player A"},
+      "non_striker": {"player_id": 51, "name": "Player B"},
+      "bowler": {"player_id": 64, "name": "Player C"},
+      "dismissal": null
+    },
+    "batsmen": [
+      {
+        "player_id": 57,
+        "name": "Player A",
+        "runs": 7,
+        "balls": 11,
+        "fours": 0,
+        "sixes": 0,
+        "strike_rate": 63.64,
+        "on_strike": true
+      }
+    ],
+    "bowler": {
+      "player_id": 64,
+      "name": "Player C",
+      "overs": 6.3,
+      "maidens": 0,
+      "runs_conceded": 53,
+      "wickets": 0,
+      "economy": 8.15
+    },
+    "fall_of_wickets": [
+      {"score": 1, "wicket": 1, "player_id": 50, "name": "Player X", "over": 0.2}
+    ],
+    "last_6_balls": [
+      {"over": 40.2, "runs": 1},
+      {"over": 40.3, "runs": 1},
+      {"over": 40.4, "runs": 0},
+      {"over": 40.5, "runs": 0},
+      {"over": 40.6, "runs": 1},
+      {"over": 41.1, "runs": 0}
+    ]
   },
-  "fall_of_wickets": [
-    {"score": 12, "wicket": 1, "player_id": 44, "over": 2.3},
-    {"score": 47, "wicket": 2, "player_id": 46, "over": 6.1}
-  ],
-  "last_6_balls": [
-    {"over": 12.2, "runs": 1},
-    {"over": 12.3, "runs": 4},
-    {"over": 12.4, "runs": 0},
-    {"over": 12.5, "runs": 1},
-    {"over": 12.6, "runs": 6},
-    {"over": 13.1, "runs": 0}
+  "extras": {
+    "wides": 2,
+    "no_balls": 1,
+    "byes": 0,
+    "leg_byes": 0
+  },
+  "events": [
+    {"type": "commentary", "text": "Player A hits a four!", "over": 40.4},
+    {"type": "wicket", "player_id": 49, "name": "John Greer", "over": 2.3}
   ]
 }
 ```

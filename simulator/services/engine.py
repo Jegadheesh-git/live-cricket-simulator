@@ -122,46 +122,20 @@ class SimulationEngine:
             elif ball.is_leg_bye:
                 extra_type = "LEG_BYE"
 
-            batsmen_payload = self._build_batsmen_payload(match)
-            bowler_payload = self._build_bowler_payload(match, bowler)
-            partnership_payload = self._build_partnership_payload(match)
-            fall_of_wickets_payload = self._build_fall_of_wickets(match)
-            last_6_balls_payload = self._build_last_6_balls(match)
-
             legal_balls_after = Ball.objects.filter(match=match, innings=match.current_innings, is_wide=False, is_no_ball=False).count()
             overs_float = legal_balls_after / 6 if legal_balls_after > 0 else 0
             run_rate = (innings_score.total_runs / overs_float) if overs_float > 0 else 0
 
-            payload = {
-                'type': 'BALL_UPDATE',
-                'matchId': match.id,
-                'ball': {
-                    'over': ball.over_number,
-                    'ball': ball.ball_number,
-                    'runs': ball.runs_batter,
-                    'extras': ball.extras,
-                    'extra_type': extra_type,
-                    'is_wicket': ball.is_wicket,
-                    'dismissal': ball.dismissal_type,
-                    'striker_id': striker.id,
-                    'non_striker_id': non_striker.id,
-                    'bowler_id': bowler.id,
-                },
-                'score': {
-                    'team_id': innings_score.team.id,
-                    'runs': innings_score.total_runs,
-                    'wickets': innings_score.total_wickets,
-                    'overs': innings_score.total_overs,
-                    'run_rate': round(run_rate, 2),
-                    'required_run_rate': None,
-                }
-                ,
-                'batsmen': batsmen_payload,
-                'bowler': bowler_payload,
-                'partnership': partnership_payload,
-                'fall_of_wickets': fall_of_wickets_payload,
-                'last_6_balls': last_6_balls_payload,
-            }
+            payload = self._build_ws_payload(
+                match=match,
+                innings_score=innings_score,
+                ball=ball,
+                striker=striker,
+                non_striker=non_striker,
+                bowler=bowler,
+                extra_type=extra_type,
+                run_rate=run_rate,
+            )
             async_to_sync(channel_layer.group_send)(
                 f'match_{match.id}',
                 {
@@ -403,12 +377,71 @@ class SimulationEngine:
             match.save()
             print(f"Match {match.id}: Match Completed.")
 
+    def _build_ws_payload(self, match, innings_score, ball, striker, non_striker, bowler, extra_type, run_rate):
+        match_info = self._build_match_info_payload(match)
+        teams_payload = self._build_teams_payload(match)
+        batsmen_payload = self._build_batsmen_payload(match)
+        bowler_payload = self._build_bowler_payload(match, bowler)
+        partnership_payload = self._build_partnership_payload(match)
+        fall_of_wickets_payload = self._build_fall_of_wickets(match)
+        last_6_balls_payload = self._build_last_6_balls(match)
+        extras_payload = self._build_extras_payload(match)
+        events_payload = self._build_events_payload(ball, striker)
+
+        batting_team = innings_score.team
+        bowling_team = self._get_bowling_team(match)
+
+        last_ball_payload = {
+            'over': ball.over_number,
+            'ball': ball.ball_number,
+            'runs': ball.runs_batter,
+            'extras': ball.extras,
+            'extra_type': extra_type,
+            'is_wicket': ball.is_wicket,
+            'striker': {'player_id': striker.id, 'name': f"{striker.first_name} {striker.last_name}"},
+            'non_striker': {'player_id': non_striker.id, 'name': f"{non_striker.first_name} {non_striker.last_name}"},
+            'bowler': {'player_id': bowler.id, 'name': f"{bowler.first_name} {bowler.last_name}"},
+            'dismissal': ball.dismissal_type,
+        }
+
+        current_innings = {
+            'batting_team_id': batting_team.id,
+            'bowling_team_id': bowling_team.id,
+            'partnership': partnership_payload,
+            'last_ball': last_ball_payload,
+            'batsmen': batsmen_payload,
+            'bowler': bowler_payload,
+            'fall_of_wickets': fall_of_wickets_payload,
+            'last_6_balls': last_6_balls_payload,
+        }
+
+        payload = {
+            'type': 'BALL_UPDATE',
+            'matchId': match.id,
+            'matchInfo': match_info,
+            'teams': teams_payload,
+            'score': {
+                'team_id': innings_score.team.id,
+                'runs': innings_score.total_runs,
+                'wickets': innings_score.total_wickets,
+                'overs': innings_score.total_overs,
+                'run_rate': round(run_rate, 2),
+                'required_run_rate': None,
+            },
+            'currentInnings': current_innings,
+            'extras': extras_payload,
+            'events': events_payload,
+        }
+
+        return payload
+
     def _build_batsmen_payload(self, match):
         scores = BattingScore.objects.filter(match=match, innings=match.current_innings, is_out=False)
         payload = []
         for s in scores:
             payload.append({
                 'player_id': s.player.id,
+                'name': f"{s.player.first_name} {s.player.last_name}",
                 'runs': s.runs,
                 'balls': s.balls_faced,
                 'fours': s.fours,
@@ -423,6 +456,7 @@ class SimulationEngine:
         if not score:
             return {
                 'player_id': bowler.id,
+                'name': f"{bowler.first_name} {bowler.last_name}",
                 'overs': 0.0,
                 'maidens': 0,
                 'runs_conceded': 0,
@@ -431,6 +465,7 @@ class SimulationEngine:
             }
         return {
             'player_id': bowler.id,
+            'name': f"{bowler.first_name} {bowler.last_name}",
             'overs': score.overs,
             'maidens': score.maidens,
             'runs_conceded': score.runs_conceded,
@@ -450,7 +485,8 @@ class SimulationEngine:
         runs = balls_qs.aggregate(total=models.Sum('total_runs')).get('total') or 0
         balls = balls_qs.filter(is_wide=False, is_no_ball=False).count()
 
-        return {'runs': runs, 'balls': balls}
+        batsmen = self._build_batsmen_payload(match)
+        return {'runs': runs, 'balls': balls, 'batsmen': [{'player_id': b['player_id'], 'name': b['name']} for b in batsmen]}
 
     def _build_fall_of_wickets(self, match):
         balls = Ball.objects.filter(match=match, innings=match.current_innings).order_by('id')
@@ -465,6 +501,7 @@ class SimulationEngine:
                     'score': total,
                     'wicket': wickets,
                     'player_id': b.dismissed_player.id if b.dismissed_player else None,
+                    'name': f"{b.dismissed_player.first_name} {b.dismissed_player.last_name}" if b.dismissed_player else None,
                     'over': float(f"{b.over_number}.{b.ball_number}"),
                 })
         return fall
@@ -478,3 +515,78 @@ class SimulationEngine:
                 'runs': b.total_runs,
             })
         return payload
+
+    def _build_match_info_payload(self, match):
+        tournament = match.tournament
+        status = "LIVE" if match.is_live and not match.match_ended else "COMPLETED" if match.match_ended else "PAUSED"
+        overs_per_innings = 20 if match.match_type == "T20" else 50 if match.match_type == "ODI" else 0
+        teams = list(match.teams.all())
+        match_name = " vs ".join([t.name for t in teams]) if teams else f"Match {match.id}"
+        return {
+            'matchId': match.id,
+            'matchName': match_name,
+            'tournament': {
+                'id': str(tournament.id) if tournament else None,
+                'name': tournament.name if tournament else None,
+                'code': tournament.code if tournament else None,
+            },
+            'venue': match.venue,
+            'startTime': match.date.isoformat().replace('+00:00', 'Z'),
+            'status': status,
+            'overs_per_innings': overs_per_innings,
+        }
+
+    def _build_teams_payload(self, match):
+        teams_payload = []
+        for team in match.teams.all():
+            squad_entries = PlayingSquad.objects.filter(match=match, team=team).select_related('player')
+            squad = []
+            for sq in squad_entries:
+                player = sq.player
+                squad.append({
+                    'player_id': player.id,
+                    'name': f"{player.first_name} {player.last_name}",
+                    'role': player.role,
+                    'batting_hand': player.batting_hand,
+                    'bowling_style': player.bowling_style,
+                    'is_captain': sq.is_captain,
+                    'is_wicket_keeper': sq.is_wicket_keeper,
+                })
+            teams_payload.append({
+                'id': team.id,
+                'name': team.name,
+                'short_name': team.short_name,
+                'logo_url': team.logo_url,
+                'squad': squad,
+            })
+        return teams_payload
+
+    def _build_extras_payload(self, match):
+        balls = Ball.objects.filter(match=match, innings=match.current_innings)
+        wides = balls.filter(is_wide=True).count()
+        no_balls = balls.filter(is_no_ball=True).count()
+        byes = balls.filter(is_bye=True).count()
+        leg_byes = balls.filter(is_leg_bye=True).count()
+        return {
+            'wides': wides,
+            'no_balls': no_balls,
+            'byes': byes,
+            'leg_byes': leg_byes,
+        }
+
+    def _build_events_payload(self, ball, striker):
+        events = []
+        if ball.runs_batter >= 4:
+            events.append({
+                'type': 'commentary',
+                'text': f"{striker.first_name} {striker.last_name} hits a {ball.runs_batter}!",
+                'over': float(f"{ball.over_number}.{ball.ball_number}"),
+            })
+        if ball.is_wicket:
+            events.append({
+                'type': 'wicket',
+                'player_id': ball.dismissed_player.id if ball.dismissed_player else None,
+                'name': f"{ball.dismissed_player.first_name} {ball.dismissed_player.last_name}" if ball.dismissed_player else None,
+                'over': float(f"{ball.over_number}.{ball.ball_number}"),
+            })
+        return events
