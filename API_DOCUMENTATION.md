@@ -240,19 +240,67 @@ Event: `BALL_UPDATE`
   "ball": {
     "over": 5,
     "ball": 4,
-    "is_wicket": false,
-    "dismissal": null,
     "runs": 4,
     "extras": 0,
+    "extra_type": null,
+    "is_wicket": false,
+    "dismissal": null,
     "striker_id": 119,
+    "non_striker_id": 120,
     "bowler_id": 137
   },
   "score": {
     "team_id": 3,
     "runs": 49,
     "wickets": 2,
-    "overs": 5.4
-  }
+    "overs": 5.4,
+    "run_rate": 6.54,
+    "required_run_rate": null
+  },
+  "batsmen": [
+    {
+      "player_id": 119,
+      "runs": 34,
+      "balls": 28,
+      "fours": 4,
+      "sixes": 1,
+      "strike_rate": 121.43,
+      "on_strike": true
+    },
+    {
+      "player_id": 120,
+      "runs": 18,
+      "balls": 21,
+      "fours": 2,
+      "sixes": 0,
+      "strike_rate": 85.71,
+      "on_strike": false
+    }
+  ],
+  "bowler": {
+    "player_id": 137,
+    "overs": 2.1,
+    "maidens": 0,
+    "runs_conceded": 14,
+    "wickets": 1,
+    "economy": 6.46
+  },
+  "partnership": {
+    "runs": 42,
+    "balls": 38
+  },
+  "fall_of_wickets": [
+    {"score": 12, "wicket": 1, "player_id": 44, "over": 2.3},
+    {"score": 47, "wicket": 2, "player_id": 46, "over": 6.1}
+  ],
+  "last_6_balls": [
+    {"over": 12.2, "runs": 1},
+    {"over": 12.3, "runs": 4},
+    {"over": 12.4, "runs": 0},
+    {"over": 12.5, "runs": 1},
+    {"over": 12.6, "runs": 6},
+    {"over": 13.1, "runs": 0}
+  ]
 }
 ```
 

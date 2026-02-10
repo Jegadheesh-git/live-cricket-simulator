@@ -1,7 +1,7 @@
 import random
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
-from django.db import transaction
+from django.db import transaction, models
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
@@ -34,9 +34,14 @@ class SimulationEngine:
                 self._handle_innings_break(match, innings_score)
                 return
 
+            # Calculate current over/ball before outcome
+            legal_balls = Ball.objects.filter(match=match, innings=match.current_innings, is_wide=False, is_no_ball=False).count()
+            over_number = legal_balls // 6
+            ball_number = (legal_balls % 6) + 1
+
             # Determine Outcome
-            outcome = self._determine_outcome()
-            
+            outcome = self._determine_outcome(match, innings_score, over_number, ball_number)
+
             # Get Context (Striker, Bowler, etc.)
             striker, non_striker = self._get_current_batters(match, innings_score)
             bowler = self._get_current_bowler(match, innings_score)
@@ -55,13 +60,6 @@ class SimulationEngine:
             is_wicket = outcome['is_wicket']
             
             # Create Ball
-            # Need to calculate current over and ball number
-            # Simple assumption: total legal balls / 6
-            # We need to query previous balls in this innings to get correct over number
-            legal_balls = Ball.objects.filter(match=match, innings=match.current_innings, is_wide=False, is_no_ball=False).count()
-            over_number = legal_balls // 6
-            ball_number = (legal_balls % 6) + 1
-            
             ball = Ball.objects.create(
                 match=match,
                 innings=match.current_innings,
@@ -109,19 +107,44 @@ class SimulationEngine:
                 innings_score.save()
                 self._handle_innings_break(match, innings_score)
 
+            # Ensure new batter is created after wicket for payload completeness
+            self._get_current_batters(match, innings_score)
+
             # Broadcast Event
             channel_layer = get_channel_layer()
+            extra_type = None
+            if ball.is_wide:
+                extra_type = "WIDE"
+            elif ball.is_no_ball:
+                extra_type = "NO_BALL"
+            elif ball.is_bye:
+                extra_type = "BYE"
+            elif ball.is_leg_bye:
+                extra_type = "LEG_BYE"
+
+            batsmen_payload = self._build_batsmen_payload(match)
+            bowler_payload = self._build_bowler_payload(match, bowler)
+            partnership_payload = self._build_partnership_payload(match)
+            fall_of_wickets_payload = self._build_fall_of_wickets(match)
+            last_6_balls_payload = self._build_last_6_balls(match)
+
+            legal_balls_after = Ball.objects.filter(match=match, innings=match.current_innings, is_wide=False, is_no_ball=False).count()
+            overs_float = legal_balls_after / 6 if legal_balls_after > 0 else 0
+            run_rate = (innings_score.total_runs / overs_float) if overs_float > 0 else 0
+
             payload = {
                 'type': 'BALL_UPDATE',
                 'matchId': match.id,
                 'ball': {
                     'over': ball.over_number,
                     'ball': ball.ball_number,
-                    'is_wicket': ball.is_wicket,
-                    'dismissal': ball.dismissal_type,
                     'runs': ball.runs_batter,
                     'extras': ball.extras,
+                    'extra_type': extra_type,
+                    'is_wicket': ball.is_wicket,
+                    'dismissal': ball.dismissal_type,
                     'striker_id': striker.id,
+                    'non_striker_id': non_striker.id,
                     'bowler_id': bowler.id,
                 },
                 'score': {
@@ -129,7 +152,15 @@ class SimulationEngine:
                     'runs': innings_score.total_runs,
                     'wickets': innings_score.total_wickets,
                     'overs': innings_score.total_overs,
+                    'run_rate': round(run_rate, 2),
+                    'required_run_rate': None,
                 }
+                ,
+                'batsmen': batsmen_payload,
+                'bowler': bowler_payload,
+                'partnership': partnership_payload,
+                'fall_of_wickets': fall_of_wickets_payload,
+                'last_6_balls': last_6_balls_payload,
             }
             async_to_sync(channel_layer.group_send)(
                 f'match_{match.id}',
@@ -139,7 +170,7 @@ class SimulationEngine:
                 }
             )
 
-    def _determine_outcome(self):
+    def _determine_outcome(self, match, innings_score, over_number, ball_number):
         # Weighted Random
         choices = [
             {'runs': 0, 'extras': 0, 'is_wicket': False, 'is_wide': False, 'is_no_ball': False}, # Dot
@@ -151,6 +182,10 @@ class SimulationEngine:
             {'runs': 0, 'extras': 1, 'is_wicket': False, 'is_wide': True,  'is_no_ball': False}, # Wide
         ]
         weights = [40, 30, 5, 8, 4, 3, 2] # Probabilities
+
+        # Encourage wickets between overs 3-5 (inclusive)
+        if 3 <= over_number <= 5:
+            weights = [38, 29, 5, 8, 4, 8, 2]
         return random.choices(choices, weights=weights, k=1)[0]
 
     def _get_batting_team(self, match):
@@ -367,3 +402,79 @@ class SimulationEngine:
             match.is_live = False
             match.save()
             print(f"Match {match.id}: Match Completed.")
+
+    def _build_batsmen_payload(self, match):
+        scores = BattingScore.objects.filter(match=match, innings=match.current_innings, is_out=False)
+        payload = []
+        for s in scores:
+            payload.append({
+                'player_id': s.player.id,
+                'runs': s.runs,
+                'balls': s.balls_faced,
+                'fours': s.fours,
+                'sixes': s.sixes,
+                'strike_rate': round(s.strike_rate, 2),
+                'on_strike': s.is_on_strike,
+            })
+        return payload
+
+    def _build_bowler_payload(self, match, bowler):
+        score = BowlingScore.objects.filter(match=match, innings=match.current_innings, player=bowler).first()
+        if not score:
+            return {
+                'player_id': bowler.id,
+                'overs': 0.0,
+                'maidens': 0,
+                'runs_conceded': 0,
+                'wickets': 0,
+                'economy': 0.0,
+            }
+        return {
+            'player_id': bowler.id,
+            'overs': score.overs,
+            'maidens': score.maidens,
+            'runs_conceded': score.runs_conceded,
+            'wickets': score.wickets,
+            'economy': round(score.economy, 2),
+        }
+
+    def _build_partnership_payload(self, match):
+        last_wicket_ball = Ball.objects.filter(
+            match=match, innings=match.current_innings, is_wicket=True
+        ).order_by('-id').first()
+
+        balls_qs = Ball.objects.filter(match=match, innings=match.current_innings)
+        if last_wicket_ball:
+            balls_qs = balls_qs.filter(id__gt=last_wicket_ball.id)
+
+        runs = balls_qs.aggregate(total=models.Sum('total_runs')).get('total') or 0
+        balls = balls_qs.filter(is_wide=False, is_no_ball=False).count()
+
+        return {'runs': runs, 'balls': balls}
+
+    def _build_fall_of_wickets(self, match):
+        balls = Ball.objects.filter(match=match, innings=match.current_innings).order_by('id')
+        fall = []
+        total = 0
+        wickets = 0
+        for b in balls:
+            total += b.total_runs
+            if b.is_wicket:
+                wickets += 1
+                fall.append({
+                    'score': total,
+                    'wicket': wickets,
+                    'player_id': b.dismissed_player.id if b.dismissed_player else None,
+                    'over': float(f"{b.over_number}.{b.ball_number}"),
+                })
+        return fall
+
+    def _build_last_6_balls(self, match):
+        balls = Ball.objects.filter(match=match, innings=match.current_innings).order_by('-id')[:6]
+        payload = []
+        for b in reversed(list(balls)):
+            payload.append({
+                'over': float(f"{b.over_number}.{b.ball_number}"),
+                'runs': b.total_runs,
+            })
+        return payload
